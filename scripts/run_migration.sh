@@ -2,12 +2,23 @@
 
 MIGRATION_DIR="db/migrations"
 LOG_FILE="logs/migration_log.txt"
+SORT_ORDER=""
+FILES_TO_PROCESS=${2:-"all"} # Default value is "all" if the argument is not provided
 
 # Create the log file if it doesn't exist
 touch "$LOG_FILE"
 
+# Check if the argument is "rollback" to set sorting order to descending
+if [[ "$1" == "rollback" ]]; then
+    SORT_ORDER="-r"
+fi
+
 # Get a list of migration files sorted by datetime
-FILES=$(ls -1 "$MIGRATION_DIR" | sort)
+if [ "$FILES_TO_PROCESS" = "all" ]; then
+    FILES=$(ls -1 "$MIGRATION_DIR" | sort $SORT_ORDER)
+else
+    FILES=$(ls -1 "$MIGRATION_DIR" | sort $SORT_ORDER | head -n $FILES_TO_PROCESS)
+fi
 
 # Read the log file to get the list of already executed migrations
 executed_migrations=$(cat "$LOG_FILE")
@@ -29,7 +40,10 @@ for FILE in $FILES; do
         # Check if the migration has already been executed
         if migration_executed "$FILE"; then
             # Determine whether to run "up" or "rollback" based on the log
-            if grep -q "up" <<<"$executed_migrations" && [[ "$1" == "rollback" ]]; then
+            if [[ "$1" == "up" ]]; then
+                echo "Skipping already executed migration: $FILE"
+                continue
+            elif grep -q "up" <<<"$executed_migrations" && [[ "$1" == "rollback" ]]; then
                 echo "Running rollback for: $FILE"
                 # Compile the C file
                 gcc -o "${FULL_PATH%.c}" "$FULL_PATH" src/migrator.c src/csv.c -I./include

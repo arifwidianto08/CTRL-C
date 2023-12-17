@@ -1,3 +1,6 @@
 program
 logs/*
 .vscode
+
+db/data/*
+!db/data/test.csv
